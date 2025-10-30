@@ -1,5 +1,7 @@
 // Archivo: lib/vistas/categorias_vistas.dart
-// Contiene la vista para la gestión (CRUD) de categorías, con confirmación de eliminación.
+
+// [Imports y funciones auxiliares (colorToHex, hexToColor, mapas de colores)
+// se mantienen igual que en la respuesta anterior.]
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,8 +20,7 @@ final Map<String, Color> coloresDisponibles = {
 
 /// Comentario: Función auxiliar para convertir un Color de Flutter a un String Hex.
 String colorToHex(Color color) {
-  // Ignoramos la advertencia sobre 'value' ya que el uso aquí es simple y funcional.
-  // Es la forma más directa de obtener el valor HEX.
+  // ignore: deprecated_member_use
   return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
 }
 
@@ -37,6 +38,31 @@ Color hexToColor(String hexString) {
 class VistaGestionCategorias extends StatelessWidget {
   const VistaGestionCategorias({super.key});
 
+  /// Comentario: Clasifica las categorías en un mapa según sus tipos aplicables.
+  Map<String, List<Categoria>> _agruparCategorias(List<Categoria> categorias) {
+    final Map<String, List<Categoria>> grupos = {
+      'Entrada': [],
+      'Salida': [],
+      'Transferencia': [],
+      'Todas / Mixtas': [],
+    };
+
+    for (var categoria in categorias) {
+      final tipos = categoria.tiposAplicables;
+
+      if (tipos.contains(TipoCategoria.todos) || tipos.length > 1) {
+        grupos['Todas / Mixtas']!.add(categoria);
+      } else if (tipos.contains(TipoCategoria.entrada)) {
+        grupos['Entrada']!.add(categoria);
+      } else if (tipos.contains(TipoCategoria.salida)) {
+        grupos['Salida']!.add(categoria);
+      } else if (tipos.contains(TipoCategoria.transferencia)) {
+        grupos['Transferencia']!.add(categoria);
+      }
+    }
+    return grupos;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,66 +75,101 @@ class VistaGestionCategorias extends StatelessWidget {
             return const Center(child: Text('No hay categorías aún. Añade una.'));
           }
 
-          return ListView.builder(
-            itemCount: gestion.categorias.length,
-            itemBuilder: (context, index) {
-              final categoria = gestion.categorias[index];
+          final grupos = _agruparCategorias(gestion.categorias);
 
-              final Color colorCategoria = hexToColor(categoria.color);
-
-              // ⭐️ LÓGICA DE VISUALIZACIÓN DE TIPO (USANDO TIPOS APLICABLES)
-              final bool isEntrada = categoria.tiposAplicables.contains(TipoCategoria.entrada);
-              final bool isSalida = categoria.tiposAplicables.contains(TipoCategoria.salida);
-              final bool isTransferencia = categoria.tiposAplicables.contains(TipoCategoria.transferencia);
-              final bool isTodos = categoria.tiposAplicables.contains(TipoCategoria.todos);
-
-              String tipoDisplay;
-              Color colorPrincipal;
-
-              if (isTodos) {
-                tipoDisplay = 'Todas';
-                colorPrincipal = Colors.grey;
-              } else if (isEntrada && !isSalida && !isTransferencia) {
-                tipoDisplay = 'Entrada';
-                colorPrincipal = Colors.green;
-              } else if (isSalida && !isEntrada && !isTransferencia) {
-                tipoDisplay = 'Salida';
-                colorPrincipal = Colors.red;
-              } else if (isTransferencia && !isEntrada && !isSalida) {
-                tipoDisplay = 'Transf.';
-                colorPrincipal = Colors.blue.shade800;
-              } else {
-                tipoDisplay = 'Mixta'; // Para categorías que aplican a varios tipos
-                colorPrincipal = Colors.blueGrey;
+          return ListView(
+            padding: const EdgeInsets.all(8.0), // Relleno global para la lista
+            children: grupos.keys.map((nombreGrupo) {
+              final listaCategorias = grupos[nombreGrupo]!;
+              if (listaCategorias.isEmpty) {
+                return const SizedBox.shrink();
               }
-              // ⭐️ FIN LÓGICA DE VISUALIZACIÓN
 
-              return ListTile(
-                leading: Icon(Icons.circle, color: colorCategoria),
-                title: Text(categoria.nombre),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: colorPrincipal,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        tipoDisplay,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _mostrarConfirmacionEliminar(context, gestion, categoria),
-                    ),
-                  ],
+              // MEJORA UI: Usar Card para elevar y separar visualmente el ExpansionTile (minimalista)
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8.0),
+                elevation: 0.5,
+                child: ExpansionTile(
+                  title: Text(
+                    '$nombreGrupo (${listaCategorias.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  initiallyExpanded: nombreGrupo == 'Salida',
+                  children: listaCategorias.map((categoria) {
+                    final Color colorCategoria = hexToColor(categoria.color);
+
+                    // LÓGICA DE VISUALIZACIÓN DE TIPO (se mantiene igual)
+                    final bool isEntrada = categoria.tiposAplicables.contains(TipoCategoria.entrada);
+                    final bool isSalida = categoria.tiposAplicables.contains(TipoCategoria.salida);
+                    final bool isTransferencia = categoria.tiposAplicables.contains(TipoCategoria.transferencia);
+                    final bool isTodos = categoria.tiposAplicables.contains(TipoCategoria.todos);
+
+                    String tipoDisplay;
+                    Color colorPrincipal;
+
+                    if (isTodos) {
+                      tipoDisplay = 'Todas';
+                      colorPrincipal = Colors.grey;
+                    } else if (isEntrada && !isSalida && !isTransferencia) {
+                      tipoDisplay = 'Entrada';
+                      colorPrincipal = Colors.green;
+                    } else if (isSalida && !isEntrada && !isTransferencia) {
+                      tipoDisplay = 'Salida';
+                      colorPrincipal = Colors.red;
+                    } 
+                    // ⭐ CORRECCIÓN DE TYPO: isSalencia cambiado por isSalida
+                    else if (isTransferencia && !isEntrada && !isSalida) {
+                      tipoDisplay = 'Transf.';
+                      colorPrincipal = Colors.blue.shade800;
+                    } else {
+                      tipoDisplay = 'Mixta';
+                      colorPrincipal = Colors.blueGrey;
+                    }
+                    // FIN LÓGICA DE VISUALIZACIÓN
+
+                    return Column(
+                      children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 24.0), // Aumenta el relleno
+                          leading: Icon(Icons.circle, color: colorCategoria, size: 20),
+                          title: Text(categoria.nombre),
+                          // Subtítulo con el ID de la categoría (ayuda a la depuración)
+                          subtitle: Text('ID: ${categoria.idCategoria.substring(0, 4)}...'), 
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: colorPrincipal,
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  tipoDisplay,
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blueGrey, size: 20),
+                                onPressed: () => _mostrarDialogoEdicion(context, categoria),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                onPressed: () => _mostrarConfirmacionEliminar(context, gestion, categoria),
+                              ),
+                            ],
+                          ),
+                          onTap: () => _mostrarDialogoEdicion(context, categoria),
+                        ),
+                        // Añadir un divisor entre ListTiles, pero no después del último
+                        if (listaCategorias.last != categoria)
+                          const Divider(height: 1, indent: 24, endIndent: 24),
+                      ],
+                    );
+                  }).toList(),
                 ),
-                onTap: () => _mostrarDialogoEdicion(context, categoria),
               );
-            },
+            }).toList(),
           );
         },
       ),
@@ -149,12 +210,11 @@ class VistaGestionCategorias extends StatelessWidget {
     );
   }
 
-
   /// Comentario: Muestra un diálogo para crear una nueva categoría.
   void _mostrarDialogoNuevaCategoria(BuildContext context) {
     final TextEditingController nombreController = TextEditingController();
     Color colorSeleccionado = Colors.black;
-    Set<TipoCategoria> tiposAplicables = {TipoCategoria.todos}; // Inicializado a 'todos'
+    Set<TipoCategoria> tiposAplicables = {TipoCategoria.todos}; 
 
     showDialog(
       context: context,
@@ -172,14 +232,12 @@ class VistaGestionCategorias extends StatelessWidget {
                       decoration: const InputDecoration(labelText: 'Nombre de la Categoría'),
                     ),
                     const SizedBox(height: 20),
-                    // SELECTOR DE COLOR
                     _buildColorSelector(context, colorSeleccionado, (newColor) {
                       setState(() {
                         colorSeleccionado = newColor;
                       });
                     }),
                     const SizedBox(height: 20),
-                    // SELECTOR DE TIPOS APLICABLES
                     _TipoCategoriaSelector(
                       selectedTypes: tiposAplicables,
                       onChanged: (newTypes) {
@@ -203,7 +261,6 @@ class VistaGestionCategorias extends StatelessWidget {
                   onPressed: () {
                     if (nombreController.text.isNotEmpty) {
                       final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
-                      
                       gestion.agregarCategoria(
                         nombreController.text,
                         colorToHex(colorSeleccionado),
@@ -243,14 +300,12 @@ class VistaGestionCategorias extends StatelessWidget {
                       decoration: const InputDecoration(labelText: 'Nombre de la Categoría'),
                     ),
                     const SizedBox(height: 20),
-                    // SELECTOR DE COLOR
                     _buildColorSelector(context, colorSeleccionado, (newColor) {
                       setState(() {
                         colorSeleccionado = newColor;
                       });
                     }),
                     const SizedBox(height: 20),
-                    // SELECTOR DE TIPOS APLICABLES
                     _TipoCategoriaSelector(
                       selectedTypes: tiposAplicables,
                       onChanged: (newTypes) {
@@ -275,7 +330,6 @@ class VistaGestionCategorias extends StatelessWidget {
                     if (nombreController.text.isNotEmpty) {
                       final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
 
-                      // Creamos un nuevo objeto Categoria con los datos actualizados
                       final Categoria categoriaActualizada = Categoria(
                         idCategoria: categoria.idCategoria,
                         nombre: nombreController.text,
@@ -298,8 +352,9 @@ class VistaGestionCategorias extends StatelessWidget {
 
   /// Comentario: Widget auxiliar para la selección de color mediante Dropdown.
   Widget _buildColorSelector(BuildContext context, Color currentColor, Function(Color) onColorChanged) {
-    // ... (El código de este widget se mantiene sin cambios)
+    // ignore: deprecated_member_use
     String colorName = coloresDisponibles.entries.firstWhere(
+      // ignore: deprecated_member_use
       (entry) => entry.value.value == currentColor.value,
       orElse: () => MapEntry('Personalizado', currentColor),
     ).key;
@@ -355,7 +410,6 @@ class _TipoCategoriaSelector extends StatefulWidget {
   final ValueChanged<Set<TipoCategoria>> onChanged;
 
   const _TipoCategoriaSelector({
-    super.key,
     required this.selectedTypes,
     required this.onChanged,
   });
@@ -373,15 +427,12 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
 
   @override
   Widget build(BuildContext context) {
-    // Determina si está en modo "Todos" (cuando el set contiene solo 'todos' o está vacío, aunque en la vista de edición siempre debería tener algo).
     final bool todosSelected = widget.selectedTypes.contains(TipoCategoria.todos) || widget.selectedTypes.isEmpty;
-    // La selección real de tipos específicos es el set sin 'todos'.
     final Set<TipoCategoria> currentSelection = todosSelected ? {} : Set.from(widget.selectedTypes);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 📝 CORRECCIÓN: Etiqueta cambiada de frase a solo "Tipo:"
         const Text('Tipo:', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
 
@@ -392,16 +443,16 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
               value: todosSelected,
               onChanged: (bool? value) {
                 if (value == true) {
-                  // Si se selecciona 'Todas', forzamos el estado a {TipoCategoria.todos}
                   widget.onChanged({TipoCategoria.todos});
                 } else if (value == false && todosSelected) {
-                  // ⭐️ CORRECCIÓN DEL BUG: Al desmarcar 'Todas', pasamos a un estado de un solo tipo (Entrada)
-                  // en lugar de un set vacío, para evitar que 'Todas' se vuelva a marcar inmediatamente.
                   widget.onChanged({TipoCategoria.entrada});
                 }
               },
             ),
-            const Text('Todas (Entrada, Salida, Transferencia)'),
+            // ARREGLO DE OVERFLOW: Usar Flexible para permitir que el texto se ajuste al espacio.
+            Flexible( 
+              child: const Text('Todas (Entrada, Salida, Transferencia)'),
+            ),
           ],
         ),
 
@@ -416,8 +467,6 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
               children: [
                 Checkbox(
                   value: isSelected,
-                  // ⭐️ CORRECCIÓN DEL BUG: onChanged ya no es 'null' si 'todosSelected' es true.
-                  // Esto permite hacer clic para salir del modo 'Todas'.
                   onChanged: (bool? value) {
                     setState(() {
                       final Set<TipoCategoria> newSelection = Set.from(currentSelection);
@@ -428,7 +477,6 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
                         newSelection.remove(type);
                       }
 
-                      // Si el usuario desmarca el último tipo específico, volvemos a 'Todas'.
                       if (newSelection.isEmpty) {
                         widget.onChanged({TipoCategoria.todos});
                       } else {
