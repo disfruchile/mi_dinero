@@ -21,10 +21,11 @@ class CategoriaGestion with ChangeNotifier {
   }
 
   /// Comentario: Agrega una nueva categoría.
-  Future<void> agregarCategoria(String nombre, TipoOperacion tipo, String color, Set<TipoCategoria> tiposAplicables) async {
+  // ⭐ MODIFICADO: Se elimina el parámetro TipoOperacion tipo
+  Future<void> agregarCategoria(String nombre, String color, Set<TipoCategoria> tiposAplicables) async {
     final nuevaCategoria = Categoria(
       nombre: nombre,
-      tipo: tipo,
+      // ⭐ MODIFICADO: Se elimina el parámetro tipo del constructor
       color: color,
       tiposAplicables: tiposAplicables.isEmpty ? {TipoCategoria.todos} : tiposAplicables,
     );
@@ -38,7 +39,7 @@ class CategoriaGestion with ChangeNotifier {
     await cargarCategorias();
   }
 
-  /// Comentario: Actualiza una categoría existente en la BD y recarga. (Se mantiene por si se usa directamente).
+  /// Comentario: Actualiza una categoría existente en la BD y recarga.
   Future<void> actualizarCategoria(Categoria categoria) async {
     await _categoriaBD.actualizarCategoria(categoria);
     await cargarCategorias();

@@ -1,5 +1,5 @@
 // Archivo: lib/vistas/categorias_vistas.dart
-// Contiene la vista para la gestión (CRUD) de categorías, incluyendo edición, color y tipos aplicables.
+// Contiene la vista para la gestión (CRUD) de categorías, con confirmación de eliminación.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +18,8 @@ final Map<String, Color> coloresDisponibles = {
 
 /// Comentario: Función auxiliar para convertir un Color de Flutter a un String Hex.
 String colorToHex(Color color) {
-  return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+  // ⭐ CORRECCIÓN: Usamos toARGB32() en lugar de .value para evitar la advertencia de deprecación.
+  return '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
 }
 
 /// Comentario: Función auxiliar para convertir un String Hex a un Color de Flutter.
@@ -27,7 +28,6 @@ Color hexToColor(String hexString) {
     final hex = hexString.replaceAll('#', '');
     return Color(int.parse('FF$hex', radix: 16));
   } catch (e) {
-    // Si falla la conversión (ej: color por defecto no válido), devuelve negro.
     return Colors.black;
   }
 }
@@ -53,41 +53,57 @@ class VistaGestionCategorias extends StatelessWidget {
             itemBuilder: (context, index) {
               final categoria = gestion.categorias[index];
 
-              // Determina el tipo principal para el display
-              final String tipo = categoria.tipo == TipoOperacion.entrada ? 'Entrada' : 'Salida';
-              final Color colorPrimario = categoria.tipo == TipoOperacion.entrada ? Colors.green : Colors.red;
               final Color colorCategoria = hexToColor(categoria.color);
 
-              // Muestra los tipos aplicables como texto
-              final String tiposAplicablesStr = categoria.tiposAplicables
-                  .map((t) => t.name)
-                  .join(', ');
+              // LÓGICA DE VISUALIZACIÓN DE TIPO (USANDO TIPOS APLICABLES)
+              final bool isEntrada = categoria.tiposAplicables.contains(TipoCategoria.entrada);
+              final bool isSalida = categoria.tiposAplicables.contains(TipoCategoria.salida);
+              final bool isTransferencia = categoria.tiposAplicables.contains(TipoCategoria.transferencia);
+              final bool isTodos = categoria.tiposAplicables.contains(TipoCategoria.todos);
+
+              String tipoDisplay;
+              Color colorPrincipal;
+
+              if (isTodos) {
+                tipoDisplay = 'Todas';
+                colorPrincipal = Colors.grey;
+              } else if (isEntrada && !isSalida && !isTransferencia) {
+                tipoDisplay = 'Entrada';
+                colorPrincipal = Colors.green;
+              } else if (isSalida && !isEntrada && !isTransferencia) {
+                tipoDisplay = 'Salida';
+                colorPrincipal = Colors.red;
+              } else if (isTransferencia && !isEntrada && !isSalida) {
+                tipoDisplay = 'Transf.';
+                colorPrincipal = Colors.blue.shade800;
+              } else {
+                tipoDisplay = 'Mixta';
+                colorPrincipal = Colors.blueGrey;
+              }
 
               return ListTile(
                 leading: Icon(Icons.circle, color: colorCategoria),
                 title: Text(categoria.nombre),
-                subtitle: Text('Aplica a: $tiposAplicablesStr'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorPrimario,
+                        color: colorPrincipal,
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
-                        tipo,
+                        tipoDisplay,
                         style: const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => gestion.eliminarCategoria(categoria.idCategoria),
+                      onPressed: () => _mostrarConfirmacionEliminar(context, gestion, categoria),
                     ),
                   ],
                 ),
-                // ⭐ IMPLEMENTACIÓN DE EDICIÓN
                 onTap: () => _mostrarDialogoEdicion(context, categoria),
               );
             },
@@ -103,10 +119,38 @@ class VistaGestionCategorias extends StatelessWidget {
     );
   }
 
+  /// Comentario: Muestra un diálogo de confirmación antes de eliminar una categoría.
+  void _mostrarConfirmacionEliminar(BuildContext context, CategoriaGestion gestion, Categoria categoria) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Confirmar Eliminación'),
+          content: Text('¿Estás seguro de que quieres eliminar la categoría "${categoria.nombre}"? Esta acción no se puede deshacer.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                gestion.eliminarCategoria(categoria.idCategoria);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   /// Comentario: Muestra un diálogo para crear una nueva categoría.
   void _mostrarDialogoNuevaCategoria(BuildContext context) {
     final TextEditingController nombreController = TextEditingController();
-    TipoOperacion tipoSeleccionado = TipoOperacion.salida;
     Color colorSeleccionado = Colors.black;
     Set<TipoCategoria> tiposAplicables = {};
 
@@ -124,134 +168,6 @@ class VistaGestionCategorias extends StatelessWidget {
                     TextField(
                       controller: nombreController,
                       decoration: const InputDecoration(labelText: 'Nombre de la Categoría'),
-                    ),
-                    const SizedBox(height: 20),
-                    // ⭐ SELECTOR DE TIPO PRINCIPAL (Salida/Entrada)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        const Text('Tipo Principal:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        DropdownButton<TipoOperacion>(
-                          value: tipoSeleccionado,
-                          items: const [
-                            DropdownMenuItem(
-                              value: TipoOperacion.salida,
-                              child: Text('Salida'),
-                            ),
-                            DropdownMenuItem(
-                              value: TipoOperacion.entrada,
-                              child: Text('Entrada'),
-                            ),
-                          ],
-                          onChanged: (TipoOperacion? newValue) {
-                            if (newValue != null) {
-                              setState(() {
-                                tipoSeleccionado = newValue;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // ⭐ SELECTOR DE COLOR
-                    _buildColorSelector(context, colorSeleccionado, (newColor) {
-                      setState(() {
-                        colorSeleccionado = newColor;
-                      });
-                    }),
-                    const SizedBox(height: 20),
-                    // ⭐ SELECTOR DE TIPOS APLICABLES
-                    _TipoCategoriaSelector(
-                      selectedTypes: tiposAplicables,
-                      onChanged: (newTypes) {
-                        setState(() {
-                          tiposAplicables = newTypes;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('Cancelar'),
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                  },
-                ),
-                TextButton(
-                  child: const Text('Guardar'),
-                  onPressed: () {
-                    if (nombreController.text.isNotEmpty) {
-                      final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
-                      gestion.agregarCategoria(
-                        nombreController.text,
-                        tipoSeleccionado,
-                        colorToHex(colorSeleccionado), // Color seleccionado
-                        tiposAplicables, // Tipos aplicables
-                      );
-                      Navigator.of(dialogContext).pop();
-                    }
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  /// Comentario: Muestra un diálogo para editar una categoría existente.
-  void _mostrarDialogoEdicion(BuildContext context, Categoria categoria) {
-    final TextEditingController nombreController = TextEditingController(text: categoria.nombre);
-    TipoOperacion tipoSeleccionado = categoria.tipo;
-    Color colorSeleccionado = hexToColor(categoria.color);
-    Set<TipoCategoria> tiposAplicables = Set.from(categoria.tiposAplicables); // Copia del Set
-
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Editar Categoría'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    TextField(
-                      controller: nombreController,
-                      decoration: const InputDecoration(labelText: 'Nombre de la Categoría'),
-                    ),
-                    const SizedBox(height: 20),
-                    // SELECTOR DE TIPO PRINCIPAL (Salida/Entrada)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        const Text('Tipo Principal:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        DropdownButton<TipoOperacion>(
-                          value: tipoSeleccionado,
-                          items: const [
-                            DropdownMenuItem(
-                              value: TipoOperacion.salida,
-                              child: Text('Salida'),
-                            ),
-                            DropdownMenuItem(
-                              value: TipoOperacion.entrada,
-                              child: Text('Entrada'),
-                            ),
-                          ],
-                          onChanged: (TipoOperacion? newValue) {
-                            if (newValue != null) {
-                              setState(() {
-                                tipoSeleccionado = newValue;
-                              });
-                            }
-                          },
-                        ),
-                      ],
                     ),
                     const SizedBox(height: 20),
                     // SELECTOR DE COLOR
@@ -286,16 +202,85 @@ class VistaGestionCategorias extends StatelessWidget {
                     if (nombreController.text.isNotEmpty) {
                       final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
                       
-                      // Creamos un nuevo objeto Categoria con los datos actualizados
+                      gestion.agregarCategoria(
+                        nombreController.text,
+                        colorToHex(colorSeleccionado),
+                        tiposAplicables,
+                      );
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Comentario: Muestra un diálogo para editar una categoría existente.
+  void _mostrarDialogoEdicion(BuildContext context, Categoria categoria) {
+    final TextEditingController nombreController = TextEditingController(text: categoria.nombre);
+    Color colorSeleccionado = hexToColor(categoria.color);
+    Set<TipoCategoria> tiposAplicables = Set.from(categoria.tiposAplicables);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Editar Categoría'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    TextField(
+                      controller: nombreController,
+                      decoration: const InputDecoration(labelText: 'Nombre de la Categoría'),
+                    ),
+                    const SizedBox(height: 20),
+                    // SELECTOR DE COLOR
+                    _buildColorSelector(context, colorSeleccionado, (newColor) {
+                      setState(() {
+                        colorSeleccionado = newColor;
+                      });
+                    }),
+                    const SizedBox(height: 20),
+                    // SELECTOR DE TIPOS APLICABLES
+                    _TipoCategoriaSelector(
+                      selectedTypes: tiposAplicables,
+                      onChanged: (newTypes) {
+                        setState(() {
+                          tiposAplicables = newTypes;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancelar'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                TextButton(
+                  child: const Text('Guardar'),
+                  onPressed: () {
+                    if (nombreController.text.isNotEmpty) {
+                      final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
+
                       final Categoria categoriaActualizada = Categoria(
                         idCategoria: categoria.idCategoria,
                         nombre: nombreController.text,
-                        tipo: tipoSeleccionado,
                         color: colorToHex(colorSeleccionado),
                         tiposAplicables: tiposAplicables.isEmpty ? {TipoCategoria.todos} : tiposAplicables,
                       );
 
-                      gestion.editarCategoria(categoriaActualizada); // ⭐ Llamada a la función de edición
+                      gestion.editarCategoria(categoriaActualizada);
                       Navigator.of(dialogContext).pop();
                     }
                   },
@@ -311,7 +296,8 @@ class VistaGestionCategorias extends StatelessWidget {
   /// Comentario: Widget auxiliar para la selección de color mediante Dropdown.
   Widget _buildColorSelector(BuildContext context, Color currentColor, Function(Color) onColorChanged) {
     String colorName = coloresDisponibles.entries.firstWhere(
-      (entry) => entry.value.value == currentColor.value,
+      // ⭐ CORRECCIÓN: Usamos toARGB32() en lugar de .value para evitar la advertencia.
+      (entry) => entry.value.toARGB32() == currentColor.toARGB32(),
       orElse: () => MapEntry('Personalizado', currentColor),
     ).key;
 
@@ -329,7 +315,7 @@ class VistaGestionCategorias extends StatelessWidget {
           ),
         ),
         DropdownButton<String>(
-          value: coloresDisponibles.keys.contains(colorName) ? colorName : 'Negro', // Asegurar un valor inicial válido
+          value: coloresDisponibles.keys.contains(colorName) ? colorName : 'Negro',
           items: coloresDisponibles.keys.map((String name) {
             return DropdownMenuItem<String>(
               value: name,
@@ -360,7 +346,7 @@ class VistaGestionCategorias extends StatelessWidget {
   }
 }
 
-// ⭐️ Comentario: NUEVO WIDGET para seleccionar múltiples TipoCategoria.
+/// Comentario: Widget para seleccionar múltiples TipoCategoria.
 class _TipoCategoriaSelector extends StatefulWidget {
   final Set<TipoCategoria> selectedTypes;
   final ValueChanged<Set<TipoCategoria>> onChanged;
@@ -375,7 +361,6 @@ class _TipoCategoriaSelector extends StatefulWidget {
 }
 
 class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
-  // Lista de todos los tipos excepto 'todos', ya que 'todos' es la ausencia de selección.
   final List<TipoCategoria> _availableTypes = [
     TipoCategoria.entrada,
     TipoCategoria.salida,
@@ -384,10 +369,7 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
 
   @override
   Widget build(BuildContext context) {
-    // Si 'todos' está presente, significa que no hay tipos específicos seleccionados.
     bool todosSelected = widget.selectedTypes.contains(TipoCategoria.todos) || widget.selectedTypes.isEmpty;
-    
-    // Si 'todos' está seleccionado, deseleccionamos todos los demás visualmente.
     final Set<TipoCategoria> currentSelection = todosSelected ? {} : widget.selectedTypes;
 
     return Column(
@@ -402,11 +384,9 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
               value: todosSelected,
               onChanged: (bool? value) {
                 if (value == true) {
-                  // Si selecciona 'Todos', el Set solo debe contener 'todos'
                   widget.onChanged({TipoCategoria.todos});
                 } else {
-                  // Si deselecciona 'Todos', se queda vacío (que será interpretado como 'todos' si se guarda).
-                  widget.onChanged({}); 
+                  widget.onChanged({});
                 }
               },
             ),
@@ -417,9 +397,8 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
         Wrap(
           spacing: 8.0,
           children: _availableTypes.map((type) {
-            // El checkbox es interactivo solo si 'todos' NO está marcado.
             final bool isSelected = currentSelection.contains(type);
-            
+
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -432,12 +411,11 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
                       } else {
                         currentSelection.remove(type);
                       }
-                      // Notificar el cambio. Si el Set queda vacío, la lógica lo convertirá a {TipoCategoria.todos}.
-                      widget.onChanged(currentSelection); 
+                      widget.onChanged(currentSelection);
                     });
                   },
                 ),
-                Text(type.name.substring(0, 1).toUpperCase() + type.name.substring(1)), // Capitaliza la primera letra
+                Text(type.name.substring(0, 1).toUpperCase() + type.name.substring(1)),
               ],
             );
           }).toList(),

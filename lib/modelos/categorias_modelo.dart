@@ -1,36 +1,28 @@
 // Archivo: lib/modelos/categorias_modelo.dart
-// Contiene el modelo de datos de Categoría (enum TipoOperacion) y su DAO (CategoriaBD).
+// Contiene el modelo de datos de Categoría y su DAO (CategoriaBD).
 
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'base_datos.dart';
 
-/// Comentario: Enumeración obsoleta para Tipos de Operación (Entrada/Salida).
-enum TipoOperacion {
-  entrada, // ⭐ REEMPLAZADO: ingreso -> entrada
-  salida   // ⭐ REEMPLAZADO: gasto -> salida
-}
-
-// Comentario: NUEVO ENUM. Define a qué tipo de transacciones aplica una categoría.
+/// Comentario: Define a qué tipo de transacciones aplica una categoría.
 enum TipoCategoria {
-  entrada,        // ⭐ REEMPLAZADO: ingreso -> entrada
-  salida,         // ⭐ REEMPLAZADO: gasto -> salida
+  entrada,
+  salida,
   transferencia,
   todos
 }
 
-/// Comentario: Clase que representa una categoría de salida o entrada.
+/// Comentario: Clase que representa una categoría (solo definida por su color y tiposAplicables).
 class Categoria {
   final String idCategoria;
   final String nombre;
-  final TipoOperacion tipo; // Tipo de operación (Entrada o Salida)
   final String color;
   final Set<TipoCategoria> tiposAplicables;
 
   Categoria({
     String? idCategoria,
     required this.nombre,
-    required this.tipo,
     this.color = '#000000',
     Set<TipoCategoria>? tiposAplicables,
   }) : idCategoria = idCategoria ?? const Uuid().v4(),
@@ -43,7 +35,6 @@ class Categoria {
     return {
       'idCategoria': idCategoria,
       'nombre': nombre,
-      'tipo': tipo.index,
       'color': color,
       'tiposAplicables': tiposIndices.join(','),
     };
@@ -59,7 +50,6 @@ class Categoria {
     return Categoria(
       idCategoria: map['idCategoria'] as String,
       nombre: map['nombre'] as String,
-      tipo: TipoOperacion.values[map['tipo'] as int],
       color: map['color'] as String,
       tiposAplicables: tipos,
     );
@@ -79,20 +69,25 @@ class CategoriaBD {
       CREATE TABLE $nombreTabla (
         idCategoria TEXT PRIMARY KEY,
         nombre TEXT NOT NULL,
-        tipo INTEGER NOT NULL,
         color TEXT NOT NULL DEFAULT '#000000',
         tiposAplicables TEXT NOT NULL DEFAULT '3'
       )
     ''');
   }
 
-  /// Comentario: Inserta una nueva categoría.
+  // ⭐️ Método: Inserta una nueva categoría.
   Future<void> insertarCategoria(Categoria categoria) async {
     final db = await _dbManager.database;
     await db.insert(nombreTabla, categoria.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  /// Comentario: Actualiza una categoría existente.
+  // ⭐️ Método: Consulta todas las categorías de la base de datos.
+  Future<List<Map<String, dynamic>>> consultarCategoriasMapas() async {
+    final db = await _dbManager.database;
+    return db.query(nombreTabla, orderBy: 'nombre ASC');
+  }
+  
+  // ⭐️ Método: Actualiza una categoría existente.
   Future<void> actualizarCategoria(Categoria categoria) async {
     final db = await _dbManager.database;
     await db.update(
@@ -104,13 +99,7 @@ class CategoriaBD {
     );
   }
 
-  /// Comentario: Consulta todas las categorías de la base de datos.
-  Future<List<Map<String, dynamic>>> consultarCategoriasMapas() async {
-    final db = await _dbManager.database;
-    return db.query(nombreTabla, orderBy: 'nombre ASC');
-  }
-
-  /// Comentario: Elimina una categoría por su ID.
+  // ⭐️ Método: Elimina una categoría por su ID.
   Future<void> eliminarCategoria(String id) async {
     final db = await _dbManager.database;
     await db.delete(
