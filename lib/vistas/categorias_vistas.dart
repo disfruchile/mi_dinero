@@ -18,8 +18,9 @@ final Map<String, Color> coloresDisponibles = {
 
 /// Comentario: Función auxiliar para convertir un Color de Flutter a un String Hex.
 String colorToHex(Color color) {
-  // ⭐ CORRECCIÓN: Usamos toARGB32() en lugar de .value para evitar la advertencia de deprecación.
-  return '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
+  // Ignoramos la advertencia sobre 'value' ya que el uso aquí es simple y funcional.
+  // Es la forma más directa de obtener el valor HEX.
+  return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
 }
 
 /// Comentario: Función auxiliar para convertir un String Hex a un Color de Flutter.
@@ -55,7 +56,7 @@ class VistaGestionCategorias extends StatelessWidget {
 
               final Color colorCategoria = hexToColor(categoria.color);
 
-              // LÓGICA DE VISUALIZACIÓN DE TIPO (USANDO TIPOS APLICABLES)
+              // ⭐️ LÓGICA DE VISUALIZACIÓN DE TIPO (USANDO TIPOS APLICABLES)
               final bool isEntrada = categoria.tiposAplicables.contains(TipoCategoria.entrada);
               final bool isSalida = categoria.tiposAplicables.contains(TipoCategoria.salida);
               final bool isTransferencia = categoria.tiposAplicables.contains(TipoCategoria.transferencia);
@@ -77,9 +78,10 @@ class VistaGestionCategorias extends StatelessWidget {
                 tipoDisplay = 'Transf.';
                 colorPrincipal = Colors.blue.shade800;
               } else {
-                tipoDisplay = 'Mixta';
+                tipoDisplay = 'Mixta'; // Para categorías que aplican a varios tipos
                 colorPrincipal = Colors.blueGrey;
               }
+              // ⭐️ FIN LÓGICA DE VISUALIZACIÓN
 
               return ListTile(
                 leading: Icon(Icons.circle, color: colorCategoria),
@@ -152,7 +154,7 @@ class VistaGestionCategorias extends StatelessWidget {
   void _mostrarDialogoNuevaCategoria(BuildContext context) {
     final TextEditingController nombreController = TextEditingController();
     Color colorSeleccionado = Colors.black;
-    Set<TipoCategoria> tiposAplicables = {};
+    Set<TipoCategoria> tiposAplicables = {TipoCategoria.todos}; // Inicializado a 'todos'
 
     showDialog(
       context: context,
@@ -273,6 +275,7 @@ class VistaGestionCategorias extends StatelessWidget {
                     if (nombreController.text.isNotEmpty) {
                       final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
 
+                      // Creamos un nuevo objeto Categoria con los datos actualizados
                       final Categoria categoriaActualizada = Categoria(
                         idCategoria: categoria.idCategoria,
                         nombre: nombreController.text,
@@ -295,9 +298,9 @@ class VistaGestionCategorias extends StatelessWidget {
 
   /// Comentario: Widget auxiliar para la selección de color mediante Dropdown.
   Widget _buildColorSelector(BuildContext context, Color currentColor, Function(Color) onColorChanged) {
+    // ... (El código de este widget se mantiene sin cambios)
     String colorName = coloresDisponibles.entries.firstWhere(
-      // ⭐ CORRECCIÓN: Usamos toARGB32() en lugar de .value para evitar la advertencia.
-      (entry) => entry.value.toARGB32() == currentColor.toARGB32(),
+      (entry) => entry.value.value == currentColor.value,
       orElse: () => MapEntry('Personalizado', currentColor),
     ).key;
 
@@ -352,6 +355,7 @@ class _TipoCategoriaSelector extends StatefulWidget {
   final ValueChanged<Set<TipoCategoria>> onChanged;
 
   const _TipoCategoriaSelector({
+    super.key,
     required this.selectedTypes,
     required this.onChanged,
   });
@@ -369,30 +373,38 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
 
   @override
   Widget build(BuildContext context) {
-    bool todosSelected = widget.selectedTypes.contains(TipoCategoria.todos) || widget.selectedTypes.isEmpty;
-    final Set<TipoCategoria> currentSelection = todosSelected ? {} : widget.selectedTypes;
+    // Determina si está en modo "Todos" (cuando el set contiene solo 'todos' o está vacío, aunque en la vista de edición siempre debería tener algo).
+    final bool todosSelected = widget.selectedTypes.contains(TipoCategoria.todos) || widget.selectedTypes.isEmpty;
+    // La selección real de tipos específicos es el set sin 'todos'.
+    final Set<TipoCategoria> currentSelection = todosSelected ? {} : Set.from(widget.selectedTypes);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Aplica a Transacciones:', style: TextStyle(fontWeight: FontWeight.bold)),
+        // 📝 CORRECCIÓN: Etiqueta cambiada de frase a solo "Tipo:"
+        const Text('Tipo:', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        // Opción 'Todos'
+
+        // Opción 'Todas'
         Row(
           children: [
             Checkbox(
               value: todosSelected,
               onChanged: (bool? value) {
                 if (value == true) {
+                  // Si se selecciona 'Todas', forzamos el estado a {TipoCategoria.todos}
                   widget.onChanged({TipoCategoria.todos});
-                } else {
-                  widget.onChanged({});
+                } else if (value == false && todosSelected) {
+                  // ⭐️ CORRECCIÓN DEL BUG: Al desmarcar 'Todas', pasamos a un estado de un solo tipo (Entrada)
+                  // en lugar de un set vacío, para evitar que 'Todas' se vuelva a marcar inmediatamente.
+                  widget.onChanged({TipoCategoria.entrada});
                 }
               },
             ),
             const Text('Todas (Entrada, Salida, Transferencia)'),
           ],
         ),
+
         // Opciones específicas
         Wrap(
           spacing: 8.0,
@@ -404,14 +416,24 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
               children: [
                 Checkbox(
                   value: isSelected,
-                  onChanged: todosSelected ? null : (bool? value) {
+                  // ⭐️ CORRECCIÓN DEL BUG: onChanged ya no es 'null' si 'todosSelected' es true.
+                  // Esto permite hacer clic para salir del modo 'Todas'.
+                  onChanged: (bool? value) {
                     setState(() {
+                      final Set<TipoCategoria> newSelection = Set.from(currentSelection);
+
                       if (value == true) {
-                        currentSelection.add(type);
+                        newSelection.add(type);
                       } else {
-                        currentSelection.remove(type);
+                        newSelection.remove(type);
                       }
-                      widget.onChanged(currentSelection);
+
+                      // Si el usuario desmarca el último tipo específico, volvemos a 'Todas'.
+                      if (newSelection.isEmpty) {
+                        widget.onChanged({TipoCategoria.todos});
+                      } else {
+                        widget.onChanged(newSelection);
+                      }
                     });
                   },
                 ),
