@@ -22,9 +22,10 @@ class VistaGestionCategorias extends StatelessWidget {
             itemCount: gestion.categorias.length,
             itemBuilder: (context, index) {
               final categoria = gestion.categorias[index];
-              // ⭐ Uso de 'ingreso' y 'gasto' corregido (minúsculas)
-              final String tipo = categoria.tipo == TipoOperacion.ingreso ? 'Ingreso' : 'Gasto';
-              final Color color = categoria.tipo == TipoOperacion.ingreso ? Colors.green : Colors.red;
+              
+              // Determina el tipo principal para el display
+              final String tipo = categoria.tipo == TipoOperacion.entrada ? 'Entrada' : 'Salida'; // ⭐ REEMPLAZADO: Ingreso/Gasto -> Entrada/Salida
+              final Color color = categoria.tipo == TipoOperacion.entrada ? Colors.green : Colors.red; // ⭐ REEMPLAZADO
 
               return ListTile(
                 title: Text(categoria.nombre),
@@ -50,6 +51,7 @@ class VistaGestionCategorias extends StatelessWidget {
                 ),
                 onTap: () {
                   // Implementación futura para editar categoría
+                  // _mostrarDialogoEdicion(context, categoria); // Función pendiente de implementación
                 },
               );
             },
@@ -68,8 +70,11 @@ class VistaGestionCategorias extends StatelessWidget {
   /// Comentario: Muestra un diálogo para crear una nueva categoría.
   void _mostrarDialogoNuevaCategoria(BuildContext context) {
     final TextEditingController nombreController = TextEditingController();
-    TipoOperacion tipoSeleccionado = TipoOperacion.gasto;
-
+    // ⭐ REEMPLAZADO: Valor por defecto es TipoOperacion.salida
+    TipoOperacion tipoSeleccionado = TipoOperacion.salida; 
+    
+    // ⭐ PENDIENTE: Aquí se deberían inicializar los selectores de color y TipoCategoria
+    
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -92,15 +97,15 @@ class VistaGestionCategorias extends StatelessWidget {
                       DropdownButton<TipoOperacion>(
                         value: tipoSeleccionado,
                         items: const [
-                          // ⭐ Uso de 'gasto' corregido
+                          // ⭐ REEMPLAZADO: Dropdown para Salida
                           DropdownMenuItem(
-                            value: TipoOperacion.gasto,
-                            child: Text('Gasto'),
+                            value: TipoOperacion.salida,
+                            child: Text('Salida'),
                           ),
-                          // ⭐ Uso de 'ingreso' corregido
+                          // ⭐ REEMPLAZADO: Dropdown para Entrada
                           DropdownMenuItem(
-                            value: TipoOperacion.ingreso,
-                            child: Text('Ingreso'),
+                            value: TipoOperacion.entrada,
+                            child: Text('Entrada'),
                           ),
                         ],
                         onChanged: (TipoOperacion? newValue) {
@@ -113,6 +118,7 @@ class VistaGestionCategorias extends StatelessWidget {
                       ),
                     ],
                   ),
+                  // ⭐ PENDIENTE: Selectores de Color y Tipos Aplicables aquí
                 ],
               ),
               actions: <Widget>[
@@ -127,9 +133,14 @@ class VistaGestionCategorias extends StatelessWidget {
                   onPressed: () {
                     if (nombreController.text.isNotEmpty) {
                       final gestion = Provider.of<CategoriaGestion>(dialogContext, listen: false);
+                      
+                      // ⭐ PENDIENTE: Los nuevos parámetros (color y tiposAplicables) no se están enviando.
+                      // Por ahora, se envía un color por defecto y un set vacío (que se convierte a 'todos' en la lógica).
                       gestion.agregarCategoria(
                         nombreController.text,
                         tipoSeleccionado,
+                        '#000000', // Color por defecto
+                        {},       // Tipos aplicables por defecto (se resuelve como 'todos')
                       );
                       Navigator.of(dialogContext).pop();
                     }

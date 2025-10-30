@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 
-// ⭐ Dependencias de Base de Datos
+// Dependencias de Base de Datos
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
@@ -18,18 +18,18 @@ import 'vistas/pantalla_principal.dart';
 
 /// Comentario: Configura la fábrica de la base de datos según la plataforma de ejecución.
 void _inicializarDatabaseFactory() {
+  // Comentario: Si estamos en la Web, usamos la fábrica web.
   if (kIsWeb) {
-    // Para Web (requiere 'dart run sqflite_common_ffi_web:setup')
     databaseFactory = databaseFactoryFfiWeb;
   } else {
-    // Para Escritorio (Windows, Linux, macOS)
+    // Comentario: Para Escritorio (Windows, Linux, macOS), usamos FFI.
     if (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    // Para Android/iOS, sqflite se inicializa automáticamente.
+    // Comentario: Para Android/iOS, sqflite se inicializa automáticamente.
   }
 }
 

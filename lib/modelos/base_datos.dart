@@ -1,54 +1,51 @@
 // Archivo: lib/modelos/base_datos.dart
-// Contiene la lógica de conexión general y la gestión de la base de datos SQLite.
 
 import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
-// import 'package:uuid/uuid.dart'; // Ya no es necesario aquí, se movió a CategoriaBD
-// import 'categorias_modelo.dart'; // Ya no es necesario aquí, solo en CategoriaBD
+import 'categorias_modelo.dart'; // Importamos para acceder a CategoriaBD.crearTabla
 
-/// Comentario: Clase Singleton que gestiona la conexión y la instancia de la base de datos SQLite.
-/// Su única función es proporcionar una conexión de base de datos (`Database`).
+/// Comentario: Clase para gestionar la inicialización y la conexión a la base de datos.
 class BaseDatosManager {
   static Database? _database;
+
+  // Comentario: Nombre del archivo de la base de datos.
+  static const String _nombreDB = 'finanzas_personales.db';
   
-  // Comentario: Acceso único a la instancia de la base de datos (Singleton).
+  // ⭐ Versión de la base de datos. Se incrementa a 2 para forzar la migración.
+  static const int _versionDB = 2; 
+
+  /// Comentario: Devuelve la instancia de la base de datos, inicializándola si es necesario.
   Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB();
+    if (_database != null) {
+      return _database!;
+    }
+    // Si la base de datos no existe, la inicializamos.
+    await iniciar();
     return _database!;
   }
 
-  // Comentario: Inicializa la conexión a la base de datos.
+  /// Comentario: Inicializa la base de datos (abre o crea).
   Future<void> iniciar() async {
-    await database; // Asegura que la BD esté inicializada
-  }
+    final databasePath = await getDatabasesPath();
+    final path = '$databasePath/$_nombreDB';
 
-  // Comentario: Inicializa la base de datos (crea el archivo si no existe).
-  Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'finanzas_personales.db');
-    
-    // Comentario: Abrimos la base de datos, especificando la función de creación.
-    return await openDatabase(
+    _database = await openDatabase(
       path,
-      version: 1,
-      onCreate: _onCreate,
+      version: _versionDB,
+      // Comentario: Función llamada cuando la base de datos es creada por primera vez.
+      onCreate: (db, version) async {
+        // Creamos todas las tablas necesarias.
+        CategoriaBD.crearTabla(db);
+        // ⭐ FUTURO: TransaccionBD.crearTabla(db);
+      },
+      // ⭐ Función llamada cuando la versión de la base de datos aumenta (migración).
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // Comentario: Migración de la versión 1 a la 2 (añadir columnas 'color' y 'tiposAplicables').
+          await db.execute('ALTER TABLE ${CategoriaBD.nombreTabla} ADD COLUMN color TEXT NOT NULL DEFAULT "#000000"');
+          await db.execute('ALTER TABLE ${CategoriaBD.nombreTabla} ADD COLUMN tiposAplicables TEXT NOT NULL DEFAULT "3"');
+          // Nota: El valor "3" corresponde al índice de TipoCategoria.todos.
+        }
+      },
     );
   }
-
-  // Comentario: Define la estructura de las tablas cuando la base de datos se crea por primera vez.
-  // En este punto, solo creamos la tabla 'categorias'.
-  Future<void> _onCreate(Database db, int version) async {
-    // Tabla Categorias
-    await db.execute('''
-      CREATE TABLE categorias (
-        idCategoria TEXT PRIMARY KEY,
-        nombre TEXT,
-        tipo INTEGER -- 0 para Entrada (Ingreso), 1 para Salida (Gasto)
-      )
-    ''');
-    // Comentario: Si en el futuro se añaden más tablas (ej. Operaciones), se crearían aquí.
-  }
-  
-  // Comentario: Se han eliminado todas las funciones CRUD (insertar, consultar, actualizar, eliminar)
-  // ya que ahora son responsabilidad de CategoriaBD en categorias_modelo.dart.
 }

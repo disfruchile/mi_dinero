@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../logica/categorias_logica.dart';
-import 'categorias_vistas.dart'; // Importación correcta de la vista de categorías
+import 'categorias_vistas.dart';
 
 /// Comentario: Pantalla principal de la aplicación.
 class PantallaPrincipal extends StatelessWidget {
@@ -61,9 +61,11 @@ class PantallaPrincipal extends StatelessWidget {
                           // Botones de Efectivo
                           Column(
                             children: [
-                              _buildOperacionButton(Colors.green, Icons.add, 'Ingreso'),
+                              // ⭐ REEMPLAZADO: Ingreso -> Entrada
+                              _buildOperacionButton(Colors.green, Icons.add, 'Entrada'),
                               const SizedBox(height: 5),
-                              _buildOperacionButton(Colors.red, Icons.remove, 'Gasto'),
+                              // ⭐ REEMPLAZADO: Gasto -> Salida
+                              _buildOperacionButton(Colors.red, Icons.remove, 'Salida'),
                             ],
                           ),
                         ),
@@ -79,9 +81,11 @@ class PantallaPrincipal extends StatelessWidget {
                           // Botones de Transferencia
                           Column(
                             children: [
-                              _buildOperacionButton(Colors.green, Icons.add, 'Ingreso'),
+                              // ⭐ REEMPLAZADO: Ingreso -> Entrada
+                              _buildOperacionButton(Colors.green, Icons.add, 'Entrada'),
                               const SizedBox(height: 5),
-                              _buildOperacionButton(Colors.red, Icons.remove, 'Gasto'),
+                              // ⭐ REEMPLAZADO: Gasto -> Salida
+                              _buildOperacionButton(Colors.red, Icons.remove, 'Salida'),
                             ],
                           ),
                         ),
@@ -108,7 +112,7 @@ class PantallaPrincipal extends StatelessWidget {
               ],
             ),
           ),
-          // ⭐ Corregido: FAB sin Hero duplicado, para añadir una operación
+          // FAB sin Hero duplicado, para añadir una operación
           floatingActionButton: FloatingActionButton(
             heroTag: 'añadirOperacionFAB',
             onPressed: () {
@@ -141,7 +145,7 @@ class PantallaPrincipal extends StatelessWidget {
     );
   }
 
-  /// Comentario: Widget auxiliar para construir los botones de Ingreso/Gasto.
+  /// Comentario: Widget auxiliar para construir los botones de Entrada/Salida.
   Widget _buildOperacionButton(Color color, IconData icon, String texto) {
     return ElevatedButton.icon(
       onPressed: () { /* Lógica para la operación */ },

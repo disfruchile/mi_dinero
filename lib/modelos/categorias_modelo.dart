@@ -5,39 +5,63 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'base_datos.dart';
 
-/// Comentario: Enumeración para diferenciar si una categoría es de Ingreso o Gasto.
+/// Comentario: Enumeración obsoleta para Tipos de Operación (Entrada/Salida).
 enum TipoOperacion {
-  ingreso, // ⭐ Corregido a minúsculas
-  gasto    // ⭐ Corregido a minúsculas
+  entrada, // ⭐ REEMPLAZADO: ingreso -> entrada
+  salida   // ⭐ REEMPLAZADO: gasto -> salida
 }
 
-/// Comentario: Clase que representa una categoría de gasto o ingreso.
+// Comentario: NUEVO ENUM. Define a qué tipo de transacciones aplica una categoría.
+enum TipoCategoria {
+  entrada,        // ⭐ REEMPLAZADO: ingreso -> entrada
+  salida,         // ⭐ REEMPLAZADO: gasto -> salida
+  transferencia,
+  todos
+}
+
+/// Comentario: Clase que representa una categoría de salida o entrada.
 class Categoria {
   final String idCategoria;
   final String nombre;
-  final TipoOperacion tipo;
+  final TipoOperacion tipo; // Tipo de operación (Entrada o Salida)
+  final String color;
+  final Set<TipoCategoria> tiposAplicables;
 
   Categoria({
     String? idCategoria,
     required this.nombre,
     required this.tipo,
-  }) : idCategoria = idCategoria ?? const Uuid().v4();
+    this.color = '#000000',
+    Set<TipoCategoria>? tiposAplicables,
+  }) : idCategoria = idCategoria ?? const Uuid().v4(),
+       tiposAplicables = tiposAplicables ?? {TipoCategoria.todos};
 
   // Comentario: Convierte el objeto Categoria a un Map para la base de datos.
   Map<String, dynamic> toMap() {
+    final List<int> tiposIndices = tiposAplicables.map((t) => t.index).toList();
+
     return {
       'idCategoria': idCategoria,
       'nombre': nombre,
-      'tipo': tipo.index, // Guardamos el índice del enum
+      'tipo': tipo.index,
+      'color': color,
+      'tiposAplicables': tiposIndices.join(','),
     };
   }
 
   // Comentario: Crea un objeto Categoria desde un Map de la base de datos.
   static Categoria fromMap(Map<String, dynamic> map) {
+    final String tiposStr = map['tiposAplicables'] as String? ?? TipoCategoria.todos.index.toString();
+    final Set<TipoCategoria> tipos = tiposStr.split(',')
+        .map((e) => TipoCategoria.values[int.parse(e)])
+        .toSet();
+
     return Categoria(
       idCategoria: map['idCategoria'] as String,
       nombre: map['nombre'] as String,
       tipo: TipoOperacion.values[map['tipo'] as int],
+      color: map['color'] as String,
+      tiposAplicables: tipos,
     );
   }
 }
@@ -55,17 +79,27 @@ class CategoriaBD {
       CREATE TABLE $nombreTabla (
         idCategoria TEXT PRIMARY KEY,
         nombre TEXT NOT NULL,
-        tipo INTEGER NOT NULL 
+        tipo INTEGER NOT NULL,
+        color TEXT NOT NULL DEFAULT '#000000',
+        tiposAplicables TEXT NOT NULL DEFAULT '3'
       )
     ''');
   }
 
-  /// Comentario: Inserta una nueva categoría en la base de datos.
+  /// Comentario: Inserta una nueva categoría.
   Future<void> insertarCategoria(Categoria categoria) async {
     final db = await _dbManager.database;
-    await db.insert(
+    await db.insert(nombreTabla, categoria.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Comentario: Actualiza una categoría existente.
+  Future<void> actualizarCategoria(Categoria categoria) async {
+    final db = await _dbManager.database;
+    await db.update(
       nombreTabla,
       categoria.toMap(),
+      where: 'idCategoria = ?',
+      whereArgs: [categoria.idCategoria],
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -83,18 +117,6 @@ class CategoriaBD {
       nombreTabla,
       where: 'idCategoria = ?',
       whereArgs: [id],
-    );
-  }
-
-  /// Comentario: Actualiza una categoría existente. ⭐ FUNCIÓN AÑADIDA
-  Future<void> actualizarCategoria(Categoria categoria) async {
-    final db = await _dbManager.database;
-    await db.update(
-      nombreTabla,
-      categoria.toMap(),
-      where: 'idCategoria = ?',
-      whereArgs: [categoria.idCategoria],
-      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 }
