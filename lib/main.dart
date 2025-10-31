@@ -13,6 +13,10 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'modelos/base_datos.dart';
 import 'modelos/categorias_modelo.dart';
 import 'logica/categorias_logica.dart';
+// IMPORTACIONES DE CUENTAS
+import 'modelos/cuentas_modelo.dart';
+import 'logica/cuentas_logica.dart';
+
 import 'vistas/pantalla_principal.dart';
 
 /// Comentario: Configura la fábrica de la base de datos según la plataforma de ejecución.
@@ -43,14 +47,18 @@ void main() async {
   final BaseDatosManager bdManager = BaseDatosManager();
   await bdManager.iniciar();
 
-  // 2. Crear el DAO de Categorías
+  // 2. Crear los DAOs
   final CategoriaBD categoriaBD = CategoriaBD(bdManager);
+  // ⭐ NUEVO: Creamos el DAO de Cuentas.
+  final CuentaBD cuentaBD = CuentaBD(bdManager); 
 
-  // 3. Crear la Lógica de Categorías
+  // 3. Crear la Lógica (Gestión de Estado) de Categorías
   final CategoriaGestion categoriaGestion = CategoriaGestion(categoriaBD);
-
-  // 4. Cargar el estado inicial
   await categoriaGestion.cargarCategorias();
+
+  // 4. Crear la Lógica de Cuentas
+  // ⭐ CORRECCIÓN DE ERROR: Ahora pasamos el DAO de Cuentas.
+  final CuentaGestion cuentaGestion = CuentaGestion(cuentaBD); 
 
   // Iniciar la aplicación e inyectar el estado (ChangeNotifier).
   runApp(
@@ -58,6 +66,10 @@ void main() async {
       providers: [
         ChangeNotifierProvider<CategoriaGestion>(
           create: (_) => categoriaGestion,
+        ),
+        // Proveedor de Cuentas
+        ChangeNotifierProvider<CuentaGestion>(
+          create: (_) => cuentaGestion,
         ),
       ],
       child: const MyApp(),
