@@ -1,8 +1,5 @@
 // Archivo: lib/vistas/categorias_vistas.dart
 
-// [Imports y funciones auxiliares (colorToHex, hexToColor, mapas de colores)
-// se mantienen igual que en la respuesta anterior.]
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../logica/categorias_logica.dart';
@@ -117,7 +114,7 @@ class VistaGestionCategorias extends StatelessWidget {
                       tipoDisplay = 'Salida';
                       colorPrincipal = Colors.red;
                     } 
-                    // ⭐ CORRECCIÓN DE TYPO: isSalencia cambiado por isSalida
+                    // Corrección de Typo: isSalencia cambiado por isSalida
                     else if (isTransferencia && !isEntrada && !isSalida) {
                       tipoDisplay = 'Transf.';
                       colorPrincipal = Colors.blue.shade800;
@@ -433,7 +430,8 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Tipo:', style: TextStyle(fontWeight: FontWeight.bold)),
+        // ⭐ MODIFICADO: Cambiado 'Tipo:' por 'Tipo'
+        const Text('Tipo', style: TextStyle(fontWeight: FontWeight.bold)), 
         const SizedBox(height: 8),
 
         // Opción 'Todas'
@@ -444,8 +442,11 @@ class __TipoCategoriaSelectorState extends State<_TipoCategoriaSelector> {
               onChanged: (bool? value) {
                 if (value == true) {
                   widget.onChanged({TipoCategoria.todos});
-                } else if (value == false && todosSelected) {
-                  widget.onChanged({TipoCategoria.entrada});
+                } 
+                // CORRECCIÓN DE BUG: Al desmarcar 'Todas', forzamos 'Entrada'
+                // para que el usuario pueda empezar a seleccionar individualmente.
+                else { 
+                  widget.onChanged({TipoCategoria.entrada}); 
                 }
               },
             ),

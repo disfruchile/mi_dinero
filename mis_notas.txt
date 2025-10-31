@@ -1,2 +1,13 @@
 Para usar sqlite en le Web
  - dart run sqflite_common_ffi_web:setup
+
+Visualiza tus versiones (commits) anteriores:
+> git log --oneline
+
+Identifica el ID de la versión estable (los primeros 7 caracteres del hash).
+
+Recupera esa versión de forma segura (creando un nuevo commit que deshace los errores):
+> git revert <id_del_commit_estable>
+
+
+
