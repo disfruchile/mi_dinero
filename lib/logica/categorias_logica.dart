@@ -19,13 +19,21 @@ class CategoriaGestion with ChangeNotifier {
     _categorias = maps.map((map) => Categoria.fromMap(map)).toList();
     notifyListeners();
   }
+  
+  // ⭐️ METODO AGREGADO: Busca una categoría por su ID.
+  Categoria? buscarCategoriaPorId(String id) {
+    try {
+      return _categorias.firstWhere((categoria) => categoria.idCategoria == id);
+    } catch (e) {
+      // Retorna null si no se encuentra la categoría.
+      return null;
+    }
+  }
 
   /// Comentario: Agrega una nueva categoría.
-  // ⭐ MODIFICADO: Se elimina el parámetro TipoOperacion tipo
   Future<void> agregarCategoria(String nombre, String color, Set<TipoCategoria> tiposAplicables) async {
     final nuevaCategoria = Categoria(
       nombre: nombre,
-      // ⭐ MODIFICADO: Se elimina el parámetro tipo del constructor
       color: color,
       tiposAplicables: tiposAplicables.isEmpty ? {TipoCategoria.todos} : tiposAplicables,
     );

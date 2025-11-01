@@ -16,6 +16,9 @@ import 'logica/categorias_logica.dart';
 // IMPORTACIONES DE CUENTAS
 import 'modelos/cuentas_modelo.dart';
 import 'logica/cuentas_logica.dart';
+// ⭐ IMPORTACIONES DE OPERACIONES
+import 'modelos/operaciones_modelo.dart';
+import 'logica/operaciones_logica.dart';
 
 import 'vistas/pantalla_principal.dart';
 
@@ -49,16 +52,21 @@ void main() async {
 
   // 2. Crear los DAOs
   final CategoriaBD categoriaBD = CategoriaBD(bdManager);
-  // ⭐ NUEVO: Creamos el DAO de Cuentas.
   final CuentaBD cuentaBD = CuentaBD(bdManager); 
+  // ⭐ NUEVO: Creamos el DAO de Operaciones.
+  final OperacionBD operacionBD = OperacionBD(bdManager);
 
   // 3. Crear la Lógica (Gestión de Estado) de Categorías
   final CategoriaGestion categoriaGestion = CategoriaGestion(categoriaBD);
   await categoriaGestion.cargarCategorias();
 
   // 4. Crear la Lógica de Cuentas
-  // ⭐ CORRECCIÓN DE ERROR: Ahora pasamos el DAO de Cuentas.
   final CuentaGestion cuentaGestion = CuentaGestion(cuentaBD); 
+  await cuentaGestion.cargarCuentas();
+
+  // 5. ⭐ NUEVO: Crear la Lógica de Operaciones (depende de CuentaGestion)
+  final OperacionesGestion operacionesGestion = OperacionesGestion(bdManager, cuentaGestion);
+  await operacionesGestion.cargarOperaciones();
 
   // Iniciar la aplicación e inyectar el estado (ChangeNotifier).
   runApp(
@@ -67,9 +75,12 @@ void main() async {
         ChangeNotifierProvider<CategoriaGestion>(
           create: (_) => categoriaGestion,
         ),
-        // Proveedor de Cuentas
         ChangeNotifierProvider<CuentaGestion>(
           create: (_) => cuentaGestion,
+        ),
+        // ⭐ NUEVO: Proveedor de Operaciones
+        ChangeNotifierProvider<OperacionesGestion>(
+          create: (_) => operacionesGestion,
         ),
       ],
       child: const MyApp(),

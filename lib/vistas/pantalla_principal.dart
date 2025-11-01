@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart'; 
+import 'package:collection/collection.dart';
+
 // Lógica de Categorías
 import '../logica/categorias_logica.dart';
 import 'categorias_vistas.dart';
@@ -11,6 +13,12 @@ import 'categorias_vistas.dart';
 import '../logica/cuentas_logica.dart';
 import '../modelos/cuentas_modelo.dart'; 
 import 'cuentas_vistas.dart'; 
+// ⭐ NUEVO: Importaciones de Operaciones
+import '../logica/operaciones_logica.dart';
+import '../modelos/operaciones_modelo.dart';
+import 'operaciones_vistas.dart'; // Para navegar a la lista y el formulario
+
+
 
 /// Comentario: Pantalla principal de la aplicación.
 class PantallaPrincipal extends StatelessWidget {
@@ -18,15 +26,15 @@ class PantallaPrincipal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // USAMOS Consumer2: Para observar los cambios en CategoriaGestion y CuentaGestion.
-    return Consumer2<CategoriaGestion, CuentaGestion>(
-      builder: (context, categoriaGestion, cuentaGestion, child) {
+    // USAMOS Consumer3: Para observar los cambios en CategoriaGestion, CuentaGestion y OperacionesGestion.
+    return Consumer3<CategoriaGestion, CuentaGestion, OperacionesGestion>(
+      builder: (context, categoriaGestion, cuentaGestion, operacionesGestion, child) {
         
         // 1. Mostrar pantalla de carga si CuentaGestion no está listo.
         if (!cuentaGestion.isInitialized) {
           return Scaffold(
-            appBar: AppBar(title: Text('Mi Dinero')),
-            body: Center(child: CircularProgressIndicator()),
+            appBar: AppBar(title: const Text('Mi Dinero')),
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -43,7 +51,6 @@ class PantallaPrincipal extends StatelessWidget {
         final formatter = NumberFormat.currency(locale: 'es_CL', symbol: '\$', decimalDigits: 0);
         
         return Scaffold(
-          // ⭐ CORREGIDO: AppBar sin const.
           appBar: AppBar( 
             title: const Text('Mi Dinero'),
             actions: [
@@ -83,7 +90,6 @@ class PantallaPrincipal extends StatelessWidget {
                   child: Column(
                     children: [
                       const Text('Balance Total:', style: TextStyle(fontSize: 24)),
-                      // Texto dinámico: no puede ser const
                       Text(
                         formatter.format(saldoTotal), 
                         style: TextStyle(
@@ -106,15 +112,16 @@ class PantallaPrincipal extends StatelessWidget {
                       // Caja de Efectivo
                       Expanded(
                         child: _buildFondoBox(
+                          context,
                           Colors.green.shade100,
                           'Efectivo',
                           formatter.format(saldoEfectivo),
                           // Botones de Efectivo
                           Column(
                             children: [
-                              _buildOperacionButton(Colors.green, Icons.add, 'Entrada', () {/* Lógica Transacción Efectivo Ingreso */}),
+                              _buildOperacionButton(context, TipoOperacion.ingreso, TipoCuenta.efectivo),
                               const SizedBox(height: 5),
-                              _buildOperacionButton(Colors.red, Icons.remove, 'Salida', () {/* Lógica Transacción Efectivo Gasto */}),
+                              _buildOperacionButton(context, TipoOperacion.gasto, TipoCuenta.efectivo),
                             ],
                           ),
                         ),
@@ -125,15 +132,16 @@ class PantallaPrincipal extends StatelessWidget {
                       // Caja de Transferencia
                       Expanded(
                         child: _buildFondoBox(
+                          context,
                           Colors.blue.shade100,
                           'Transferencia',
                           formatter.format(saldoTransferencia),
                           // Botones de Transferencia
                           Column(
                             children: [
-                              _buildOperacionButton(Colors.green, Icons.add, 'Entrada', () {/* Lógica Transacción Transferencia Ingreso */}),
+                              _buildOperacionButton(context, TipoOperacion.ingreso, TipoCuenta.transferencia),
                               const SizedBox(height: 5),
-                              _buildOperacionButton(Colors.red, Icons.remove, 'Salida', () {/* Lógica Transacción Transferencia Gasto */}),
+                              _buildOperacionButton(context, TipoOperacion.gasto, TipoCuenta.transferencia),
                             ],
                           ),
                         ),
@@ -143,20 +151,27 @@ class PantallaPrincipal extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 30),
-
-                // Lista de Operaciones (Placeholder)
+                
+                // ⭐ NUEVO: Lista de Últimas Operaciones
                 const Padding(
-                  padding: EdgeInsets.only(left: 16.0),
+                  padding: EdgeInsets.only(left: 16.0, bottom: 8.0),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text('Últimas Operaciones:', style: TextStyle(fontSize: 20)),
                   ),
                 ),
                 Expanded(
-                  child: Center(
-                    // Texto dinámico: no puede ser const
-                    child: Text('Lista de operaciones aquí (${categoriaGestion.categorias.length} categorías cargadas)'), 
-                  ),
+                  child: operacionesGestion.operaciones.isEmpty
+                      ? const Center(child: Text('No hay operaciones recientes.'))
+                      : ListView.builder(
+                          itemCount: operacionesGestion.operaciones.length > 5 
+                            ? 5 // Mostrar solo las últimas 5
+                            : operacionesGestion.operaciones.length,
+                          itemBuilder: (context, index) {
+                            final operacion = operacionesGestion.operaciones[index];
+                            return OperacionItem(operacion: operacion); // <-- EL CAMBIO ESTÁ AQUÍ
+                          },
+                        ),
                 ),
               ],
             ),
@@ -165,7 +180,12 @@ class PantallaPrincipal extends StatelessWidget {
           floatingActionButton: FloatingActionButton(
             heroTag: 'añadirOperacionFAB',
             onPressed: () {
-               // Lógica para abrir el diálogo de añadir nueva operación
+               showDialog(
+                 context: context,
+                 builder: (context) => OperacionFormDialog(
+                   cuentaId: '',
+                 ),
+               );
             },
             tooltip: 'Añadir nueva operación',
             child: const Icon(Icons.add),
@@ -176,8 +196,7 @@ class PantallaPrincipal extends StatelessWidget {
   }
 
   /// Comentario: Widget auxiliar para construir las cajas de Efectivo/Transferencia.
-  Widget _buildFondoBox(Color color, String titulo, String saldo, Widget botones) {
-    // Usamos el color del saldo del total consolidado para el saldo del box
+  Widget _buildFondoBox(BuildContext context, Color color, String titulo, String saldo, Widget botones) {
     final double saldoValor = double.tryParse(saldo.replaceAll(RegExp(r'[^\d,-]'), '').replaceAll(',', '.')) ?? 0.0;
     final Color saldoColor = saldoValor >= 0 ? Colors.black87 : Colors.red.shade700;
 
@@ -199,16 +218,43 @@ class PantallaPrincipal extends StatelessWidget {
   }
 
   /// Comentario: Widget auxiliar para construir los botones de Entrada/Salida.
-  Widget _buildOperacionButton(Color color, IconData icon, String texto, VoidCallback onPressed) {
+  Widget _buildOperacionButton(BuildContext context, TipoOperacion tipo, TipoCuenta tipoCuenta) {
+    final cuentaGestion = Provider.of<CuentaGestion>(context, listen: false);
+    final primeraCuenta = cuentaGestion.cuentas.firstWhereOrNull((c) => c.tipo == tipoCuenta);
+
+    if (primeraCuenta == null) {
+      // Si no hay ninguna cuenta de este tipo, no se muestra el botón.
+      return const SizedBox();
+    }
+
+    String textoBoton = tipo == TipoOperacion.ingreso ? 'Entrada' : 'Salida';
+    Color colorIcono = tipo == TipoOperacion.ingreso ? Colors.green : Colors.red;
+    IconData icono = tipo == TipoOperacion.ingreso ? Icons.add : Icons.remove;
+
     return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(texto, style: const TextStyle(fontSize: 12)),
       style: ElevatedButton.styleFrom(
-        backgroundColor: color,
         foregroundColor: Colors.white,
-        minimumSize: const Size(double.infinity, 30),
+        backgroundColor: colorIcono,
+        minimumSize: const Size(double.infinity, 36),
       ),
+      icon: Icon(icono),
+      label: Text(textoBoton),
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (context) => OperacionFormDialog(
+            cuentaId: primeraCuenta.idCuenta,
+            operacion: Operacion(
+              idCuenta: primeraCuenta.idCuenta,
+              tipo: tipo,
+              monto: 0,
+              fecha: DateTime.now(),
+              descripcion: '',
+              idCategoria: '',
+            ),
+          ),
+        );
+      },
     );
   }
 }
